@@ -112,7 +112,7 @@ many rows, so we have to remove them with `slice()`.
 
 > 2017-06-11: This has been fixed in readxl version 1.0
 
-Quirks specific to thse data:
+Quirks specific to these data:
 
  - GenAlEx format has an extra header region that should be ignored
  - The loci are formatted like so: `110-4(F)`, where the `(F)` part is not 
