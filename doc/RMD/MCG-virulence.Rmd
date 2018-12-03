@@ -44,14 +44,15 @@ top_mcg <- dat %>%
   slice(1:10) %>% 
   inner_join(dat, by = "MCG") %>%
   select(MCG, Severity) %>%
-  mutate(MCG = forcats::fct_inorder(as.character(MCG)))
+  mutate(MCG = forcats::fct_inorder(as.character(MCG)))# at that way when check the levels of MCG, they appear in order of appearence ad not in order of increasing
 top_mcg
+
 ```
 
 # Assessing virulence by MCG
 
 ```{r vis, fig.width = 7, fig.height = 4}
-set.seed(2017-06-29)
+set.seed(2017-06-29)# to make reproducible the random numbers
 ggplot(top_mcg, aes(x = MCG, y = Severity)) +
   geom_boxplot() +
   geom_point(position = position_jitter(width = 0.25), alpha = 0.5) +
@@ -80,7 +81,7 @@ top_mcg %>%
             `Max Aggressiveness` = max(Severity),
             `Average Aggressiveness` = mean(Severity)
             ) %>%
-  knitr::kable(digits = 2)
+  knitr::kable(digits = 2)# very important  digits to round up in case how many dgits per column
 ```
 
 
@@ -105,12 +106,13 @@ grps %>%
   tibble::rownames_to_column("MCG") %>%
   dplyr::rename(Group = groups) %>%
   dplyr::rename(`Mean Aggressiveness` = Severity) %>%
-  readr::write_csv(path = "results/tables/MCG-aggressiveness.csv", col_names = TRUE) %>%
+  #readr::write_csv(path = "results/tables/MCG-aggressiveness.csv", col_names = TRUE) %>%
   huxtable::as_huxtable(add_colnames = TRUE) %>%
   huxtable::set_number_format(row = huxtable::everywhere, col = 1, 0) %>% 
   huxtable::set_col_width(c(0.05, 0.3, 0.08)) %>%
   huxtable::set_align(row = huxtable::everywhere, col = 2, "right") %>%
   huxtable::print_md(max_width = 31)
+
 ```
 
 There appears to be a significant effect at p = `r formatC(broom::tidy(ANOVA)$p.value[1])`.
@@ -125,12 +127,12 @@ assess this as well.
 set.seed(2017-06-29)
 region_dat <- dat %>%
   group_by(Region) %>%
-  filter(n() > 5) %>%
+  filter(n() > 5) %>% #taking away those less than 5 observations
   mutate(mean_sev = mean(Severity)) %>%
   mutate(Source = ifelse(Source == "wmn", "wmn", "producer field")) %>%
   arrange(desc(mean_sev)) %>%
   ungroup() %>%
-  mutate(Region = forcats::fct_inorder(Region)) %>%
+  mutate(Region = forcats::fct_inorder(Region)) %>% # at that way when check the levels of MCG, they appear in order of appearence ad not in order of increasing
   select(Region, Severity, Source)
 
 plot.mean <- function(x) {
@@ -144,9 +146,9 @@ ggplot(region_dat, aes(x = Region, y = Severity)) +
                      pch = 21, 
                      binwidth = 0.1, 
                      alpha = 0.4) +
-  # geom_point(aes(fill = Source), 
-  #            pch = 21, 
-  #            position = position_jitter(width = 0.25), 
+  # geom_point(aes(fill = Source),
+  #            pch = 21,
+  #            position = position_jitter(width = 0.25),
   #            alpha = 0.35) +
   # geom_boxplot(alpha = 0.5) +
   stat_summary(fun.data = plot.mean, geom = "errorbar", colour = "black", width = 0.6, size = 2, alpha = 0.5) +

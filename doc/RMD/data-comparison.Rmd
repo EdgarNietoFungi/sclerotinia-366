@@ -20,6 +20,7 @@ library('tidyverse')
 library('readxl')
 library('assertr')
 library('poppr')
+library("devtools")
 ```
 
 
@@ -125,17 +126,17 @@ Quirks specific to these data:
 syd <- read_excel(file.path(PROJHOME, "data/raw/2017-02-16_copy-of-binned-genotypes_SE.xlsx"),
                 sheet = "GenAlexBinned", skip = 1) %>%
   select(-1) %>%                # removing first column, which is empty
-  gather(locus, allele, -1) %>% # gather all loci into tidy columns
-  mutate(locus = trimws(locus)) %>% # remove whitespace in locus names
+  gather(locus, allele, -1) %>% # gather all loci into tidy columns then number observatiosn increased until 4026
+  mutate(locus = trimws(locus)) %>% # remove whitespace in locus names in case
   mutate(allele = as.integer(allele)) %>% # force alleles to integers
-  spread(locus, allele) %>%     # spread data out with individual loci in columns
+  spread(locus, allele) %>%     # spread data out with individual loci in columns, basically leaving it as it was before just than now isolate and loci in order
   separate(iso_st_mcg_org_loc_yr_hst_cult_rep, 
            c("Isolate", "Severity", "MCG", "State", "Source", "Year", "Host"), 
-           sep = "_") %>%
-  mutate_if(is.character, trimws) %>% # Trim whitespace forom all character columns
+           sep = "_") %>%# separating by each category
+  mutate_if(is.character, trimws) %>% # Trim whitespace  in case from all character columns == is.character
   mutate(Severity = as.numeric(Severity)) %>%
-  mutate(Source = ifelse(Source == "", "unk", Source)) %>%
-  # slice(-n()) %>% # remove last row
+  mutate(Source = ifelse(Source == "", "unk", Source)) %>% # writing Source, it keeps all the previous as the same 
+   #slice(-n()) %>% # remove last row
   arrange(Isolate) %>%
   check_data_cromulence
 syd
@@ -163,13 +164,13 @@ column_specification <- cols(
 )
 saj <- read_csv(file.path(PROJHOME, "data/raw/2017-02-16_binned-genotypes-genalex_SA.csv"), skip = 2, col_types = column_specification) %>%
   select(-1) %>%
-  gather(locus, allele, -1) %>% # gather all loci into tidy columns
-  mutate(locus = trimws(locus)) %>% # remove any whitespace in the locus names
-  spread(locus, allele) %>%     # spread data out with individual loci in columns
+  gather(locus, allele, -1) %>% # gather all loci into tidy columns then number observatiosn increased until 4026
+  mutate(locus = trimws(locus)) %>% # remove any whitespace in the locus names in case
+  spread(locus, allele) %>%     # spread data out with individual loci in columns, , basically leaving it as it was before just than now isolate and loci in order
   separate(iso_st_mcg_org_loc_yr_hst, # Note: this corresponds closer to the initial data
            c("Isolate", "Severity", "MCG", "State", "Source", "Year", "Host"), 
            sep = "_") %>%
-  mutate_if(is.character, trimws) %>% # Trim whitespace forom all character columns
+  mutate_if(is.character, trimws) %>% # Trim whitespace from all character columns, 
   mutate(Severity = as.numeric(Severity)) %>%
   arrange(Isolate) %>%
   check_data_cromulence
@@ -243,11 +244,11 @@ abbreviations for France, Mexico, and Australia to the full names.
 ```{r}
 dat <- saj %>% 
   select(-(Isolate:Host)) %>% 
-  df2genind(ind.names = saj$Isolate, 
+  df2genind(ind.names = saj$Isolate,  # trasnforming agenind object to dataframe, ind.names optinal, a vector giving the individuals names; if NULL, taken from rownames of X. If factor or numeric, vector is converted to character.
             strata = select(saj, Severity:Host), # Filtering out severity and Isolate
             ploidy = 1) %>%
-  as.genclone()
-nameStrata(dat)[3] <- "Region"
+  as.genclone()# until here teh data is transformed to genclone objvect
+nameStrata(dat)[3] <- "Region" #defining Region instead of state
 pops <- levels(strata(dat)$Region)
 levels(strata(dat)$Region) <- case_when(pops == "FR" ~ "France", 
                                         pops == "MX" ~ "Mexico", 
@@ -257,7 +258,9 @@ dat
 locNames(dat)
 ```
 
-### Gathering Repeat Lengths
+# Now is almost to use depending the strata of populations desired
+#Fixing prior some issues
+### Gathering Repeat Lengths (Not much idea)
 
 The repeat lengths were contained in the `A1_Copy of binned-genotypes_SE.xlsx`
 spreadsheet in the "replen est" sheet. Because this sheet contained several
@@ -296,7 +299,7 @@ repeat_lengths
 Only 11 loci were manually curated by Sydney and Sajeewa. I'm taking a look at
 the other 5 loci because they may be informative. In order to do that, I'm going
 to have to clean them up by estimating the the true allele size.
-
+#Not much idea
 ```{r read_excel}
 ex <- readxl::read_excel(file.path(PROJHOME, "data/raw/2017-02-16_copy-of-binned-genotypes_SE.xlsx"), sheet = "GenAlex", skip = 1) %>%
   select(-1) %>%                # removing first column, which is empty
@@ -305,7 +308,7 @@ ex <- readxl::read_excel(file.path(PROJHOME, "data/raw/2017-02-16_copy-of-binned
   mutate(allele = as.integer(allele)) %>% # force alleles to integers
   spread(locus, allele)
 
-readr::write_csv(ex, "data/raw_data.csv", col_names = TRUE)
+#readr::write_csv(ex, "data/raw_data.csv", col_names = TRUE)
 
 ex <- ex[!names(ex) %in% locNames(dat)]
 
@@ -350,20 +353,29 @@ corrected_loci <- ex %>% gather(locus, allele, -1) %>%
            sep = "_") %>%
   arrange(Isolate) %>%
   select(-(MCG:Host))
+
 datdf <- genind2df(dat, usepop = FALSE) %>% 
   rownames_to_column(var = "Isolate") %>% 
   left_join(corrected_loci, by = "Isolate")
 stopifnot(identical(datdf$Isolate, indNames(dat)))
+
 datdf <- datdf[c("Isolate", names(repeat_lengths))]
+
 dat   <- datdf %>% 
   select(-Isolate) %>% 
   df2genind(ind.names = indNames(dat), strata = strata(dat), ploidy = 1) %>% 
-  as.genclone()
+  as.genclone()# again here is already transform ina degenet file
 
 strata(dat) %>%
   bind_cols(datdf) %>%
-  dplyr::as_data_frame() %>%
-  readr::write_csv("data/clean_data.csv", col_names = TRUE)
+  dplyr::as_data_frame() #%>%
+  #readr::write_csv("data/clean_data.csv", col_names = TRUE)
+```
+Inserted by Edgar to check how many correlatiosn there are
+```{r}
+datstrata <- strata(dat) %>%     
+    group_by(Severity, MCG, Region, Source, Year, Host) %>%
+    summarize(Count = n())
 ```
 
 The original data includes both Severity and Isolate. Since these are not
@@ -383,6 +395,29 @@ other(dat)$REPLEN <- fix_replen(dat, repeat_lengths)
 ```
 
 ```{r}
+
+
+datstrata <- strata(dat) %>%
+group_by( Region, Source, Year, Host) %>%
+summarize(Count = n())
+datstrata
+
+nameStrata(dat)
+
+
+setPop(dat) <- ~Region/Source/Host/Year
+dat
+mcc_TY <- clonecorrect(dat, strata = ~Region/Source/Host/Year, keep = 1:2)
+mcc_TY
+cc <- locus_table(mcc_TY, info = FALSE)
+mp <- locus_table(dat, info = FALSE)
+mp - cc
+locus_diff <- mp - cc
+barplot(locus_diff[, "1-D"], ylab = "Change in Simpson's Index", xlab = "Locus",main = "Comparison of clone-corrected vs. uncorrected data")
+
+```
+
+```{r}
 setPop(dat) <- ~Region
 dat
 locNames(dat)
@@ -396,7 +431,7 @@ dat11
 
 
 ```{r, save_data}
-save(dat, dat11, datdf, keeploci, corrected_loci, file = "data/sclerotinia_16_loci.rda")
+#save(dat, dat11, datdf, keeploci, corrected_loci, file = "data/sclerotinia_16_loci.rda")
 ```
 
 
